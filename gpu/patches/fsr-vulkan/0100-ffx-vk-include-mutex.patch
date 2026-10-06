@@ -1,0 +1,18 @@
+From: Phroster <6192539+Phroster@users.noreply.github.com>
+Subject: [PATCH] FFX Vulkan backend: include <mutex> for std::lock_guard
+
+libstdc++ provides it through other headers; libc++ (Clang on Windows) does not.
+---
+ upstream/ffx-1.1.4/sdk/src/backends/vk/ffx_vk.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/upstream/ffx-1.1.4/sdk/src/backends/vk/ffx_vk.cpp b/upstream/ffx-1.1.4/sdk/src/backends/vk/ffx_vk.cpp
+--- a/upstream/ffx-1.1.4/sdk/src/backends/vk/ffx_vk.cpp
++++ b/upstream/ffx-1.1.4/sdk/src/backends/vk/ffx_vk.cpp
+@@ -26,5 +26,6 @@
+ #include <FidelityFX/host/backends/vk/ffx_vk.h>
+ #include <ffx_shader_blobs.h>
+ #include <ffx_breadcrumbs_list.h>
++#include <mutex>
+
+ #ifdef _WIN32

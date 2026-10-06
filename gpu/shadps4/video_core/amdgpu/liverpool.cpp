@@ -122,7 +122,7 @@ void Liverpool::Process(std::stop_token stoken) {
         BbStats::gpu_thread_clock.store(static_cast<int>(clock));
     }
     gpu_id = std::this_thread::get_id();
-#ifdef __linux__
+#if defined(__linux__) || defined(_WIN32) // bbport-windows: gettid() from windows/compat
     gpu_tid = gettid();
 #endif
 
