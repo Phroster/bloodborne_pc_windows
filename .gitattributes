@@ -1,0 +1,3 @@
+# bbport-windows: LF everywhere, also on Windows checkouts (Git for Windows defaults to
+# core.autocrlf=true, which breaks the bash scripts and the patches in gpu/patches).
+* text=auto eol=lf
