@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT) // bbport-windows: POSIX code via windows/compat
 #include <errno.h>
 #include <pthread.h>
 #include <sched.h>
@@ -140,7 +140,7 @@ typedef struct { int32_t minuteswest, dsttime; } GuestTimezone;
 static ABI int32_t kernel_gettimezone(GuestTimezone *tz) {
     if (!tz) return ERR(22);
     time_t now=time(NULL); struct tm local; localtime_r(&now,&local);
-    tz->minuteswest=(int32_t)(-local.tm_gmtoff/60); tz->dsttime=0;
+    tz->minuteswest=(int32_t)(-RUNTIME_TM_GMTOFF(local)/60); tz->dsttime=0;
     return 0;
 }
 static ABI int32_t posix_gettimeofday(GuestTimeval *tv,GuestTimezone *tz) {

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT) // bbport-windows: POSIX code via windows/compat
 #include <pthread.h>
 #include <errno.h>
 #include <time.h>

@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT) // bbport-windows: POSIX code via windows/compat
 #include <pthread.h>
 #include <sched.h>
 #include <setjmp.h>
@@ -15,7 +15,11 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/mman.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <asm/prctl.h>
+#endif
 #define ERR(n) ((int32_t)(UINT32_C(0x80020000)|(n)))
 #define ATTR_MAGIC UINT32_C(0x41545452)
 #define STACK_MARGIN (256*1024)
@@ -57,14 +61,39 @@ void runtime_set_main_tls(const void *data,uint64_t filesz,uint64_t memsz,uint64
     tls_template=data; tls_filesz=filesz; tls_memsz=memsz; tls_align=align ? align : 16;
 }
 static uint64_t tls_offset(void) { return (tls_memsz+tls_align-1)&~(tls_align-1); }
+#ifdef _WIN32
+/* bbport-windows: Windows owns GS (it points at the TEB) and user code cannot move it. The
+ * guest TCB goes into a TLS slot instead, and probe.c points the game's `mov rax, gs:[0]` at
+ * that slot in the TEB (TlsSlots: offset 0x1480 on x64, 64 slots). */
+static DWORD tls_slot=TLS_OUT_OF_INDEXES;
+uint32_t runtime_thread_tls_displacement(void) {
+    if (tls_slot==TLS_OUT_OF_INDEXES) {
+        tls_slot=TlsAlloc();
+        if (tls_slot>=64) { fputs("STOP: no TEB TLS slot for the guest thread pointer\n",stderr); exit(21); }
+    }
+    return 0x1480+8*tls_slot;
+}
+/* The slot must be one of the first 64: taken before main, ahead of the GPU driver and the
+ * libraries it loads, which use them up. */
+__attribute__((constructor)) static void claim_tls_slot(void) { runtime_thread_tls_displacement(); }
+static void set_gs(void *base) {
+    runtime_thread_tls_displacement();
+    if (!TlsSetValue(tls_slot,base)) { fputs("STOP: TlsSetValue failed\n",stderr); exit(21); }
+}
+#else
 static void set_gs(void *base) {
     if (syscall(SYS_arch_prctl,ARCH_SET_GS,(unsigned long)base)) { perror("STOP: arch_prctl(ARCH_SET_GS)"); exit(21); }
 }
+#endif
 /* Build TCB/static TLS for the calling host thread and point GS at it. */
 static void attach(GuestThread *t) {
     uint64_t offset=tls_offset();
     size_t total=offset+256;
+#ifdef _WIN32
+    unsigned char *block=_aligned_malloc((total+63)&~(size_t)63,64); /* never freed, as below */
+#else
     unsigned char *block=aligned_alloc(64,(total+63)&~(size_t)63);
+#endif
     if (!block) { fputs("Cannot allocate guest TLS\n",stderr); exit(1); }
     memset(block,0,total);
     if (tls_filesz) memcpy(block,tls_template,tls_filesz);
@@ -240,7 +269,13 @@ static int32_t create(GuestThread **out,ThreadAttr **attr_slot,GuestEntry entry,
     uint64_t stack=t->attr.stack<MIN_STACK ? MIN_STACK : t->attr.stack;
     /* Stacks below 1 TiB as on PS4; guest code may pack stack addresses. */
     size_t stack_bytes=(size_t)stack+STACK_MARGIN;
+#ifdef _WIN32
+    /* bbport-windows: Windows allocates thread stacks itself (winpthreads ignores given memory);
+     * without high-entropy ASLR they are below 1 TiB too. */
+    void *stack_memory=NULL;
+#else
     void *stack_memory=runtime_low_map(stack_bytes,PROT_READ|PROT_WRITE);
+#endif
     if (stack_memory) pthread_attr_setstack(&host,stack_memory,stack_bytes);
     else pthread_attr_setstacksize(&host,stack_bytes);
     publish(t);

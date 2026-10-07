@@ -45,10 +45,14 @@ endif()
 # unwind, as on Linux (unwinding would walk through game code, which has no unwind data).
 set(BB_COMPAT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../windows/compat)
 include_directories(BEFORE SYSTEM ${BB_COMPAT_DIR}/include)
-add_compile_definitions(__USE_MINGW_SETJMP_NON_SEH)
-add_library(bbcompat STATIC ${BB_COMPAT_DIR}/posix_compat.c)
-target_link_libraries(bbcompat PUBLIC psapi)
-cmake_language(DEFER CALL target_link_libraries bbgpu PUBLIC bbcompat)
+# 64-bit off_t (game files are larger than 2 GiB).
+add_compile_definitions(__USE_MINGW_SETJMP_NON_SEH _FILE_OFFSET_BITS=64)
+file(GLOB BB_COMPAT_SOURCES CONFIGURE_DEPENDS ${BB_COMPAT_DIR}/*.c)
+add_library(bbcompat STATIC ${BB_COMPAT_SOURCES})
+find_package(Threads REQUIRED)
+target_link_libraries(bbcompat PUBLIC psapi bcrypt Threads::Threads)
+# Winsock (Boost.Asio), ntdll and OneCore (CreateFileMapping2) for the vendored shadPS4 code.
+cmake_language(DEFER CALL target_link_libraries bbgpu PUBLIC bbcompat ws2_32 ntdll onecore)
 
 # No X11 on Windows: SDL3 creates the window and the Win32 Vulkan surface.
 add_library(PkgConfig::X11 INTERFACE IMPORTED)
@@ -56,3 +60,4 @@ add_library(PkgConfig::X11 INTERFACE IMPORTED)
 # bbgpu is linked into bb-probe.exe: a DLL cannot leave the runtime_* symbols it takes from
 # the loader undefined (the Linux build uses --allow-shlib-undefined).
 set(BB_GPU_LIBRARY_TYPE STATIC)
+cmake_language(DEFER CALL include cmake/windows_loader.cmake)

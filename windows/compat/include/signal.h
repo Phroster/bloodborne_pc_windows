@@ -23,6 +23,12 @@ extern "C" {
 #ifndef SIGUSR2
 #define SIGUSR2 12
 #endif
+#ifndef SIGALRM
+#define SIGALRM 14
+#endif
+#ifndef SIGPROF
+#define SIGPROF 27
+#endif
 #define BB_COMPAT_NSIG 32
 
 #define SA_SIGINFO 0x00000004
@@ -69,6 +75,9 @@ struct sigaction {
 int sigaction(int sig, const struct sigaction* act, struct sigaction* old);
 /* Accepted and ignored: exception handlers run on the faulting thread's stack. */
 int sigaltstack(const stack_t* ss, stack_t* old);
+/* bbport-windows: runs sig's SA_SIGINFO handler once for every other thread, each suspended
+   meanwhile, with its registers (the Linux code sends tgkill to each thread instead). */
+int bbcompat_signal_other_threads(int sig);
 
 static inline int sigemptyset(sigset_t* set) { *set = 0; return 0; }
 static inline int sigfillset(sigset_t* set) { *set = (sigset_t)~(sigset_t)0; return 0; }

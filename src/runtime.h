@@ -3,12 +3,22 @@
 #include <time.h>
 #include <stdint.h>
 #include <stddef.h>
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT) // bbport-windows: POSIX code via windows/compat
 #include <setjmp.h>
 /* Recovery point for speculative guest memory reads on this thread (probe.c fault handler). */
 extern __thread sigjmp_buf *runtime_fault_recover;
 /* Restarts the game (in-game settings menu, render resolution change). */
 void runtime_restart(void);
+#endif
+#ifdef _WIN32
+/* bbport-windows: TEB offset of the TLS slot holding the guest TCB (runtime_thread.c). */
+uint32_t runtime_thread_tls_displacement(void);
+/* Windows' struct tm has no tm_gmtoff (windows/compat). */
+struct tm;
+long bbcompat_tm_gmtoff(const struct tm *local);
+#define RUNTIME_TM_GMTOFF(t) bbcompat_tm_gmtoff(&(t))
+#else
+#define RUNTIME_TM_GMTOFF(t) ((t).tm_gmtoff)
 #endif
 #define ABI __attribute__((sysv_abi))
 typedef void (ABI *GuestCallback)(void);

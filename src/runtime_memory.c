@@ -13,7 +13,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <time.h>
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT) // bbport-windows: POSIX code via windows/compat
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -583,6 +583,17 @@ uintptr_t runtime_memory_resolve(const char *name) {
 /* Host-owned memory the guest can see (image, stacks, trampolines) lives in
  * [LOW_MIN, USER_MIN): PS4 code packs pointers into 40-bit fields. */
 #define LOW_MIN UINT64_C(0x0800000000)
+#ifdef _WIN32
+/* bbport-windows: [LOW_MIN, USER_MAX) is reserved as placeholders before main, ahead of every
+ * other allocation; mappings at fixed addresses in it then work as with mmap on Linux
+ * (windows/compat/memory.c). */
+__attribute__((constructor)) static void reserve_guest_range(void) {
+    if (bbcompat_reserve_arena((void *)LOW_MIN,USER_MAX-LOW_MIN)) {
+        fputs("STOP: cannot reserve the guest address range (Windows 10 1803 or newer is required)\n",stderr);
+        exit(21);
+    }
+}
+#endif
 static uintptr_t low_next=LOW_MIN;
 void *runtime_low_map(size_t size, int prot) {
     size=align_up(size,PAGE);

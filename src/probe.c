@@ -12,7 +12,8 @@
 #endif
 #ifdef _WIN32
 #include <windows.h>
-#else
+#endif
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT) // bbport-windows: POSIX code via windows/compat
 #include <sys/mman.h>
 #include <malloc.h>
 #include <unistd.h>
@@ -49,7 +50,7 @@ static uint64_t read64(FILE *f) {
 }
 static size_t round_page(size_t size) { return (size + page_size - 1) & ~(page_size - 1); }
 static void *allocate(size_t size) {
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT)
     void *low=runtime_low_map(size,PROT_READ|PROT_WRITE);
     if (low) return low;
 #endif
@@ -100,7 +101,7 @@ __asm__(".text\n.globl enter_on_stack\nenter_on_stack:\n"
         " mov %rbp,%rsp\n pop %rbp\n ret\n");
 #endif
 static ABI void guest_exit(void) { puts("Runtime: process finalizer callback reached"); }
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT)
 static void fault(int sig, siginfo_t *info, void *context) {
     /* GPU page tracking (write-protected guest pages) is resolved first. */
     if (gpu_enabled && sig == SIGSEGV && bbgpu_handle_fault(context, info->si_addr)) return;
@@ -194,6 +195,10 @@ static void watchdog(int sig, siginfo_t *info, void *context) {
     const char head[]="STOP: watchdog timeout; thread stacks:\n";
     { ssize_t written_=write(2,head,sizeof(head)-1); (void)written_; }
     dump_frames(context);
+#ifdef _WIN32
+    /* bbport-windows: each other thread's stack, read while it is suspended (windows/compat). */
+    bbcompat_signal_other_threads(SIGUSR2);
+#else
     int dir=open("/proc/self/task",O_RDONLY|O_DIRECTORY);
     char buffer[4096];
     long n;
@@ -205,6 +210,7 @@ static void watchdog(int sig, siginfo_t *info, void *context) {
             if (tid>0 && tid!=self) { syscall(SYS_tgkill,getpid(),tid,SIGUSR2); usleep(20000); }
             at+=d->reclen;
         }
+#endif
     usleep(100000);
     _exit(128 + sig);
 }
@@ -338,6 +344,8 @@ int main(int argc, char **argv) {
     SYSTEM_INFO system_info; GetSystemInfo(&system_info); page_size = system_info.dwPageSize;
 #else
     page_size = (size_t)sysconf(_SC_PAGESIZE);
+#endif
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT)
     struct sigaction sa = {0}; sa.sa_sigaction = fault; sa.sa_flags = SA_SIGINFO;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGSEGV, &sa, NULL); sigaction(SIGILL, &sa, NULL); sigaction(SIGBUS, &sa, NULL);
@@ -493,6 +501,23 @@ int main(int argc, char **argv) {
         memcpy(image + relocs[i].target, &value, 8);
     }
     if (patch_file) apply_patches(patch_file, segments, ns, relocs, nr);
+#ifdef _WIN32
+    {
+        /* bbport-windows: the image scripts rewrote the game's thread pointer loads to
+         * `mov rax, gs:[0]`. Windows owns GS (the TEB): the loads read the guest TCB from a TEB
+         * TLS slot instead, same instruction, another displacement (runtime_thread.c). */
+        static const unsigned char gs_load[9]={0x65,0x48,0x8b,0x04,0x25,0,0,0,0};
+        const uint32_t displacement=runtime_thread_tls_displacement();
+        uint64_t loads=0;
+        for (uint64_t s=0;s<ns;++s) {
+            if (!(segments[s].flags&1) || segments[s].size<sizeof(gs_load)) continue;
+            unsigned char *p=image+segments[s].address, *end=p+segments[s].size-sizeof(gs_load);
+            for (; p<=end; ++p)
+                if (*p==0x65 && !memcmp(p,gs_load,sizeof(gs_load))) { memcpy(p+5,&displacement,4); p+=8; ++loads; }
+        }
+        printf("Thread pointer loads: %" PRIu64 " read TEB offset 0x%x\n",loads,(unsigned)displacement);
+    }
+#endif
     protect(traps, round_page((import_count + 1) * 32), 5);
     protect(image, round_page(size), 0);
     int executable_entry = 0;

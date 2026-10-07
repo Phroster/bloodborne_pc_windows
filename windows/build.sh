@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # bbport-windows: build in an MSYS2 CLANG64 shell (see README.md).
-# Currently builds the GPU library (out/gpu/libbbgpu.a); the loader and runtime come next.
+# Builds out/bb-probe.exe: the loader and runtime with the GPU library.
 set -euo pipefail
 cd -- "$(dirname -- "$0")/.."
 if [[ ${MSYSTEM:-} != CLANG64 ]]; then
@@ -17,10 +17,10 @@ for patch in gpu/patches/fsr-vulkan/*.patch; do
     fi
 done
 cmake -S gpu -B out/gpu -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBB_LTO="${BB_LTO:-OFF}" \
-    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -Wno-dev >/dev/null
+    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -Wno-author >/dev/null
 echo "GPU library: LTO ${BB_LTO:-OFF}"
-if ! ninja -C out/gpu bbgpu > out/gpu-build.log 2>&1; then
+if ! ninja -C out/gpu bb-probe > out/gpu-build.log 2>&1; then
     grep -v '^\[' out/gpu-build.log | tail -40 >&2
-    echo 'GPU library build failed (full log: out/gpu-build.log)' >&2; exit 1
+    echo "Build failed (full log: out/gpu-build.log)" >&2; exit 1
 fi
-echo "Built $PWD/out/gpu/libbbgpu.a"
+echo "Built $PWD/out/bb-probe.exe"

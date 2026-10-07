@@ -24,9 +24,11 @@ so new upstream releases can be merged in.
 
 ## Status
 
-**Work in progress — not yet runnable on Windows.** The code in this repository is currently
-upstream bbport 0.3 with no Windows changes yet. To play today you need Linux (or the Steam
-Deck) and [upstream bbport](https://github.com/deadinside28/bloodborne_pc).
+**Work in progress — not playable on Windows yet.** The loader, runtime and renderer build into
+`bb-probe.exe` with MSYS2 Clang, and the game boots into its own initialization on Windows
+(its threads, about 5 GB of game memory, audio, shader compilation); it does not reach the first
+frame yet. To play today you need Linux (or the Steam Deck) and
+[upstream bbport](https://github.com/deadinside28/bloodborne_pc).
 
 For the full feature list, settings, in-game menu, mods, patches and environment variables, see
 the upstream README: [English](https://github.com/deadinside28/bloodborne_pc/blob/master/README.md)
@@ -61,7 +63,36 @@ platform-independent and should carry over unchanged.
 - Your decrypted game dump: the `CUSA03173` folder (eboot.bin, sce_module, ...), version 1.09.
   The base game alone (1.00) crashes at start: copy the dumped 1.09 update over it.
 
-Build instructions will be added here once the Windows build works.
+## Building (developers)
+
+1. Install [MSYS2](https://www.msys2.org) and, in its **CLANG64** shell, the toolchain and libraries:
+
+   ```bash
+   pacman -S --needed mingw-w64-clang-x86_64-{toolchain,cmake,ninja,pkgconf,python,sdl3,boost,fmt,robin-map,xxhash,vulkan-headers,vulkan-loader,vulkan-memory-allocator,glslang,spirv-cross,spirv-headers,spirv-tools,zydis,ffmpeg} git
+   ```
+
+2. Clone with submodules and build (magic_enum, miniz and xbyak are downloaded by CMake):
+
+   ```bash
+   git clone --recursive https://github.com/Phroster/bloodborne_pc_windows.git && cd bloodborne_pc_windows
+   bash windows/build.sh            # out/bb-probe.exe
+   ./out/bb-probe.exe --vulkan-only # Vulkan check, no game files needed
+   ```
+
+3. Check your dump before running anything: damaged archives stop the game while it loads.
+
+   ```bash
+   python windows/check_dump.py "/path/to/CUSA03173"
+   ```
+
+There is no Windows launcher or run script yet. **Do not use upstream's `run.sh` on Windows:**
+its cleanup of the merged mod folder compares paths that Windows spells two ways and can delete
+the game folder.
+
+How the port works: [windows/compat](windows/compat) implements the Linux functions the code
+uses (memory mapping with Windows placeholders, signals on a vectored exception handler, files,
+threads), so upstream sources compile almost unchanged; the few Windows-specific edits in
+upstream files are marked `bbport-windows:`.
 
 ## Relationship to upstream
 

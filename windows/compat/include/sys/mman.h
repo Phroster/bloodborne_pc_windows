@@ -39,6 +39,14 @@ int mprotect(void* addr, size_t length, int prot);
 int madvise(void* addr, size_t length, int advice);
 int memfd_create(const char* name, unsigned int flags);
 
+/* bbport-windows: reserves [start, start + size) for fixed mappings (Windows placeholders).
+   Call it early, before other allocations take addresses there; MAP_FIXED mappings of
+   memfd_create() memory and anonymous memory in the range then behave as on Linux. */
+int bbcompat_reserve_arena(void* start, size_t size);
+/* For the exception dispatcher: 1 when an access fault at address is gone (a remap in another
+   thread briefly unmapped it) and the instruction should run again. */
+int bbcompat_arena_fault_retry(void* address, int write);
+
 #ifdef __cplusplus
 }
 #endif

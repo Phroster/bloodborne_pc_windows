@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(BB_WINDOWS_PORT) // bbport-windows: POSIX code via windows/compat
 #include <sys/time.h>
 typedef struct { int64_t seconds, microseconds; } GuestTimeval;
 typedef struct { int32_t minuteswest, dsttime; } GuestTimezone;
