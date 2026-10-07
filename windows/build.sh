@@ -19,7 +19,7 @@ done
 cmake -S gpu -B out/gpu -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBB_LTO="${BB_LTO:-OFF}" \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -Wno-author >/dev/null
 echo "GPU library: LTO ${BB_LTO:-OFF}"
-if ! ninja -C out/gpu bb-probe > out/gpu-build.log 2>&1; then
+if ! ninja -C out/gpu bb-probe bb-gpu-capabilities > out/gpu-build.log 2>&1; then
     grep -v '^\[' out/gpu-build.log | tail -40 >&2
     echo "Build failed (full log: out/gpu-build.log)" >&2; exit 1
 fi

@@ -291,6 +291,10 @@ void runtime_restart(void) {
     execlp("bash", "bash", "run.sh", (char *)NULL);
     perror("runtime_restart: exec");
     _exit(1);
+#else
+    /* bbport-windows: windows/run.py starts the game again when it exits with this code
+     * (RESTART_EXIT_CODE there); the GPU device goes with the process. */
+    _exit(75);
 #endif
 }
 

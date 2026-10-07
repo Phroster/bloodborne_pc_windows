@@ -85,9 +85,19 @@ platform-independent and should carry over unchanged.
    python windows/check_dump.py "/path/to/CUSA03173"
    ```
 
-There is no Windows launcher or run script yet. **Do not use upstream's `run.sh` on Windows:**
-its cleanup of the merged mod folder compares paths that Windows spells two ways and can delete
-the game folder.
+4. Start the game with `windows/run.py`, from any prompt (it prepares the game image, the
+   patches and the function list, then starts `out/bb-probe.exe`, and starts it again after
+   the in-game "Apply and restart"):
+
+   ```powershell
+   $env:BB_GAME_DIR = "G:\path\to\CUSA03173"; python windows\run.py
+   ```
+
+   It takes the same settings as upstream's `run.sh` (`bbport.ini`, `BB_FPS`, `BB_PATCHES`,
+   `BB_SAVE_LOG=1`, ...). Mods need Windows **Developer Mode** (the merged mod folder is made of
+   symbolic links); without it the game starts without them. **Do not use upstream's `run.sh` on
+   Windows:** its cleanup of the merged mod folder compares paths that Windows spells two ways
+   and can delete the game folder.
 
 How the port works: [windows/compat](windows/compat) implements the Linux functions the code
 uses (memory mapping with Windows placeholders, signals on a vectored exception handler, files,

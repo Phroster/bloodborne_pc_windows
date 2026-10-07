@@ -47,3 +47,8 @@ add_executable(redzone-test EXCLUDE_FROM_ALL ${CMAKE_CURRENT_SOURCE_DIR}/../wind
 set_target_properties(redzone-test PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../out)
 target_compile_options(redzone-test PRIVATE -Wno-missing-designated-field-initializers)
 target_link_libraries(redzone-test PRIVATE bbcompat Zydis::Zydis)
+
+# The GPU check run.py uses for live_resolution=auto, and the launcher's gamepad list.
+add_executable(bb-gpu-capabilities ${BB_SRC}/../tools/gpu_capabilities.c)
+set_target_properties(bb-gpu-capabilities PROPERTIES C_STANDARD 11 RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../out)
+target_link_libraries(bb-gpu-capabilities PRIVATE Vulkan::Vulkan PkgConfig::SDL3)
