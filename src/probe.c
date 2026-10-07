@@ -12,6 +12,7 @@
 #endif
 #ifdef _WIN32
 #include <windows.h>
+#include "windows/redzone.h"
 #endif
 #if !defined(_WIN32) || defined(BB_WINDOWS_PORT) // bbport-windows: POSIX code via windows/compat
 #include <sys/mman.h>
@@ -517,6 +518,9 @@ int main(int argc, char **argv) {
         }
         printf("Thread pointer loads: %" PRIu64 " read TEB offset 0x%x\n",loads,(unsigned)displacement);
     }
+    /* bbport-windows: Windows writes exception records over the game's stack red zones;
+     * faultable accesses where they hold data are rerouted (windows/redzone.cpp). */
+    bbport_red_zone_protect(argv[1], image, size, (const BbRedZoneSegment *)segments, ns);
 #endif
     protect(traps, round_page((import_count + 1) * 32), 5);
     protect(image, round_page(size), 0);

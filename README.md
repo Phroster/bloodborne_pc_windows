@@ -94,6 +94,15 @@ uses (memory mapping with Windows placeholders, signals on a vectored exception 
 threads), so upstream sources compile almost unchanged; the few Windows-specific edits in
 upstream files are marked `bbport-windows:`.
 
+**Red zones:** the game's leaf functions keep data in the 128 bytes below the stack pointer,
+and some Windows builds write exception records there when a GPU write-tracking fault hits
+such a function. At startup the loader probes whether this Windows does; if so, it reroutes
+the game's faultable memory accesses through trampolines that step past the red zone
+([windows/redzone.cpp](windows/redzone.cpp), ported from shadPS4's
+[#4802](https://github.com/shadps4-emu/shadPS4/pull/4802)). It needs the function list from
+`python windows/function_starts.py <game folder> --out out` (after the image scripts);
+`BB_RED_ZONE=1` forces the patching, `=0` turns it off.
+
 ## Relationship to upstream
 
 - Upstream: [deadinside28/bloodborne_pc](https://github.com/deadinside28/bloodborne_pc). All
